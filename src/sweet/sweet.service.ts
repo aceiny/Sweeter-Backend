@@ -9,13 +9,15 @@ import { User } from 'src/auth/auth.schema';
 export class SweetService {
     constructor(
         @InjectModel(Sweet.name)
-        private sweetModel : Model<Sweet>
+        private sweetModel : Model<Sweet>,
+        @InjectModel(User.name)
+        private userModel : Model<User>
     ){}
     async getSweets() : Promise<Sweet[]> {
         return await this.sweetModel.find().populate('author' , '-password').populate('likes','-password').populate('bookmarks','-pasoword')
     }
     async getSweet(id : string) : Promise<Sweet> {
-        const sweet = await this.sweetModel.findById(id).populate('author' , '-password')
+        const sweet = await this.sweetModel.findById(id).populate('author' , '-password').populate('likes','-password').populate('bookmarks','-pasoword')
         if(!sweet){
             throw new NotFoundException('Sweet not found')
         }
@@ -68,8 +70,14 @@ export class SweetService {
             if(exist){
                 throw new ConflictException('user already bookmarked')
             }
+            const userObj = await this.userModel.findById(user.id)
+            if(!userObj){
+                throw new NotFoundException('user not found')
+            }
+            userObj.bookmarks.push(sweet.id)
             sweet.bookmarks.push(user.id)
             await sweet.save()
+            await userObj.save()
             return sweet
     }
     async removeBookmark(id : string , user : User)  : Promise<Sweet> {
@@ -82,8 +90,14 @@ export class SweetService {
         if(!exist){
             throw new ConflictException('user not bookmarked')
         }
+        const userObj = await this.userModel.findById(user.id)
+        if(!userObj){
+            throw new NotFoundException('user not found')
+        }
+        userObj.bookmarks = userObj.bookmarks.filter(v => v != sweet.id)
         sweet.bookmarks = sweet.bookmarks.filter(v => v != user.id)
         await sweet.save()
+        await userObj.save()
         return sweet
     }
     async addLike(id : string , user : User)  : Promise<Sweet> {
@@ -96,8 +110,14 @@ export class SweetService {
         if(exist){
             throw new ConflictException('user already liked')
         }
+        const userObj = await this.userModel.findById(user.id)
+        if(!userObj){
+            throw new NotFoundException('user not found')
+        }
+        userObj.likes.push(sweet.id)
         sweet.likes.push(user.id)
         await sweet.save()
+        await userObj.save()
         return sweet
     }
     async removeLike(id : string , user : User)  : Promise<Sweet> {
@@ -110,8 +130,14 @@ export class SweetService {
         if(!exist){
             throw new ConflictException('user not liked')
         }
+        const userObj = await this.userModel.findById(user.id)
+        if(!userObj){
+            throw new NotFoundException('user not found')
+        }
+        userObj.likes = userObj.likes.filter(v => v != sweet.id)
         sweet.likes = sweet.likes.filter(v => v != user.id)
         await sweet.save()
+        await userObj.save()
         return sweet
     }
 }
